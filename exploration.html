@@ -1,5 +1,4 @@
 <!doctype html>
-
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -7,11 +6,11 @@
   <title>DS4200 Web Dev Tutorial</title>
 
   <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 
 </head>
 
 <body>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="interactivity.js"></script>
     <div id="header" class="header">
         <a href="./index.html" class="container clickable" id="account-container">
@@ -41,8 +40,122 @@
             - Add some generic text that we can reference in our page 
             - Add an image to the page
         -->
+        <div class = "new-container center-content">
+            <div class="new-content-title center-content"></div>
+                <h2 class="fancy-title">IMG SVG from Altair below!</h2>
+            <div class="new-content-body center-content">
+                <img src="chart.svg" width="500px"></div>
+        </div>
 
 
+        <div class="new-container center-content">
+            <div class="new-content-title center-content"></div>
+            <h2 class="fancy-title">Interactive Iris Scatterplot</h2>
+            <p>Drag across the plot to zoom in. Click twice to reset.</p>
+            <div class="new-content-body center-content">
+                <div id="dataviz_brushZoom"></div>
+            </div>
+        </div>
+
+        <script>
+            const margin = {top: 10, right: 30, bottom: 50, left: 60};
+            const width = 460 - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+            const svg = d3.select("#dataviz_brushZoom")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const dataUrl = "https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/iris.csv";
+            d3.csv(dataUrl, row => ({
+                sepalLength: Number(row.Sepal_Length),
+                petalLength: Number(row.Petal_Length),
+                species: row.Species
+            })).then(data => {
+                if (!data.length || data.some(d =>
+                    !Number.isFinite(d.sepalLength) ||
+                    !Number.isFinite(d.petalLength) ||
+                    !d.species)) {
+                    throw new Error("The Iris dataset contains invalid values.");
+                }
+
+                const x = d3.scaleLinear()
+                    .domain([4, 8])
+                    .range([0, width]);
+                const y = d3.scaleLinear()
+                    .domain([0, 9])
+                    .range([height, 0]);
+
+                const xAxis = svg.append("g")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(d3.axisBottom(x).tickFormat(d3.format(".1f")));
+                svg.append("g").call(d3.axisLeft(y));
+
+                svg.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("x", width / 2)
+                    .attr("y", height + 42)
+                    .text("Sepal length (cm)");
+                svg.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -height / 2)
+                    .attr("y", -45)
+                    .text("Petal length (cm)");
+
+                const color = d3.scaleOrdinal()
+                    .domain(["setosa", "versicolor", "virginica"])
+                    .range(d3.schemeTableau10);
+                const points = svg.append("g");
+
+                points.selectAll("circle")
+                    .data(data)
+                    .join("circle")
+                    .attr("cx", d => x(d.sepalLength))
+                    .attr("cy", d => y(d.petalLength))
+                    .attr("r", 5)
+                    .attr("fill", d => color(d.species))
+                    .append("title")
+                    .text(d => `${d.species}: sepal ${d.sepalLength} cm, petal ${d.petalLength} cm`);
+
+                let idleTimeout;
+                const brush = d3.brushX()
+                    .extent([[0, 0], [width, height]])
+                    .on("end", event => {
+                        if (!event.sourceEvent) return;
+
+                        if (event.selection) {
+                            clearTimeout(idleTimeout);
+                            idleTimeout = null;
+                            x.domain(event.selection.map(x.invert).sort(d3.ascending));
+                            svg.select(".brush").call(brush.move, null);
+                        } else if (idleTimeout) {
+                            x.domain([4, 8]);
+                            clearTimeout(idleTimeout);
+                            idleTimeout = null;
+                        } else {
+                            idleTimeout = setTimeout(() => idleTimeout = null, 350);
+                            return;
+                        }
+
+                        xAxis.transition().duration(500).call(d3.axisBottom(x));
+                        points.selectAll("circle")
+                            .transition().duration(500)
+                            .attr("cx", d => x(d.sepalLength));
+                    });
+
+                svg.append("g")
+                    .attr("class", "brush")
+                    .call(brush);
+            }).catch(error => {
+                console.error("Could not load the Iris dataset:", error);
+                d3.select("#dataviz_brushZoom")
+                    .append("p")
+                    .text("The plot could not load the online Iris dataset. Check your internet connection and reload the page.");
+            });
+        </script>
 
     </div>
     <div id="footer" class="footer">
